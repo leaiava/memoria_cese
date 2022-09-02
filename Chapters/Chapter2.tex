@@ -5,198 +5,138 @@
 %----------------------------------------------------------------------------------------
 %	SECTION 1
 %----------------------------------------------------------------------------------------
-Todos los capítulos deben comenzar con un breve párrafo introductorio que indique cuál es el contenido que se encontrará al leerlo.  La redacción sobre el contenido de la memoria debe hacerse en presente y todo lo referido al proyecto en pasado, siempre de modo impersonal.
+En este capítulo se desarrollan las partes constituyentes del dispositivo de adquisición de señales neurofisiológicas, se introduce a su hardware y al stack bluetooth. Adicionalmente se muestran las herramientas de desarrollo utilizadas en el proyecto.
 
-\section{Estilo y convenciones}
+\section{Hardware del DASN}
 \label{sec:ejemplo}
+El DASN está integrado en una sola placa y es un dispositivo portátil alimentado por baterías. Su arquitectura está basada en dos circuitos integrados principales, el microcontrolador CC2640R2 y el analog front end ADS1299. En la figura \ref{fig:diagBloquesHardware} podemos ver un diagrama en bloques del hardware.
 
-\subsection{Uso de mayúscula inicial para los título de secciones}
+\vspace{1cm}
 
-Si en el texto se hace alusión a diferentes partes del trabajo referirse a ellas como capítulo, sección o subsección según corresponda. Por ejemplo: ``En el capítulo \ref{Chapter1} se explica tal cosa'', o ``En la sección \ref{sec:ejemplo} se presenta lo que sea'', o ``En la subsección \ref{subsec:ejemplo} se discute otra cosa''.
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=1\textwidth]{./Figures/DiagramaEnBloquesHardware.png}
+	\caption{Diagrama en bloques del hardware.}
+	\label{fig:diagBloquesHardware}
+\end{figure}
 
-Cuando se quiere poner una lista tabulada, se hace así:
+\vspace{1cm}
+
+\subsection{Circuito de entrada}
+El circuito de entrada del DASN está basado en un circuito integrado ADS1299 [Ref], el cual es un \textit{Analog front end} (AFE). Los AFE son dispositivos que incorporan la parte analógica para el acondicionamiento de la señal y el conversor analógico digital para poder digitalizar la señal y leerla desde un microcontrolador. En particular el ADS1299 es un dispositivo de 8 canales, 24 bits por canal, conversión analógica digital zigma delta simultánea, con amplificadores de ganancia programable y un circuito multiplexor que permite conectar las entradas de múltiples formas que lo hacen ideal para el registro de biopotenciales y en particular de señales de EEG. En la figura \ref{fig:diagBloquesADS1299} podemos ver un diagrama en bloques del ADS1299
+
+\vspace{1cm}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=1\textwidth]{./Figures/DiagramaEnBloquesADS1299.png}
+	\caption{Diagrama en bloques del ADS1299.}
+	\label{fig:diagBloquesADS1299}
+\end{figure}
+
+\vspace{1cm}
+
+El ADS1299 posee un puerto de comunicación SPI. Adicionalmente se dispone de señales de control para poder configurar y controlar el dispositivo. El microcontrolador del DASN está conectado a todas estas interfaces de control del ADS1299.
+
+El DASN posee siete canales idénticos, los cuales solo poseen un filtro de radiofrecuencia entre el paciente y el AFE. El octavo canal, es un canal de potenciales evocados, los potenicales evocados son señales con amplitudes menores a 1 uVpp, lo que hace imposible medirlos con el ADS1299 ya que el ruido reflejado a la entrada del dispositivo es de 1 uVpp. Para solucionar este inconveniente el DASN incorpora un circuito amplificador de alto rechazo de modo común, el cual acondiciona la señal de potenciales evocados a niveles que puedan ser adquiridos con el ADS1299. 
+
+\subsection{Microcontrolador y comunicación inalámbrica}
+El DASN posee un microcontrolador CC2640R2, el cual tiene una arquitectura Arm® Cortex®-M3. Este microcontrolador posee integrado un \textit{tranceiver} de 2.4 GHz compatible con la tecnología bluetooth de baja energía 5.1 y versiones anteriores del stack bluetooth [REF]. El hecho de tener este tipo de microcontrolador con el \textit{tranceiver} integrado permite configurar el stack bluetooth por completo, con lo que se logran mejores prestaciones en consumo y ancho de banda al poder elegir el protocolo de comunicación y modo de trabajo. La placa del DASN posee una antena tipo F [REF] integrada en el circuito impreso y también ofrece la posibilidad de conectar una antena externa. 
+
+\subsection{Conceptos básicos del stack bluetooth 5.0}
+Se darán algunos conceptos básicos sobre el stack bluetooth ya que ayudarán a entender las configuraciones realizadas que se verán en el siguiente capítulo. Usaré los nombres en inglés ya que muchos términos no tienen traducción y la mayoría de la bibliografía así los referencia. El bluetooth de baja energía, también conocido por sus siglas en inglés como BLE, se divide en distintas capas. La aplicación de usuario entra en contacto con las dos capas superiores del stack bluetooth, la capa GAP y la capa GATT. A través de estas capas es que el software del DASN configura y maneja la comunicación BLE, por esta razón aborde con un poco más de profundidad estos temas.
+
+\subsubsection{Capa GAP}
+La capa GAP del stack bluetooth es responsable de las conexiones. De acuerdo a la definición de esta capa un dispositivo bluetooth se puede encontrar en uno de los siguientes estados:
 
 \begin{itemize}
-	\item Este es el primer elemento de la lista.
-	\item Este es el segundo elemento de la lista.
+\item \textit{Standby}: el dispositivo se encuentra en el estado inactivo inicial al reiniciarse.
+\item \textit{Advertising}: El dispositivo se anuncia con datos específicos que le permiten a cualquier dispositivo saber que es un dispositivo conectable (este anuncio contiene la dirección del dispositivo y puede contener algunos datos adicionales, como el nombre del dispositivo).
+\item \textit{Scanning}: En este estado se escuchan los mensajes enviados por algún \textit{advertiser}.
+\item \textit{Initiating}: En este estado se inicia la conexión, pero el \textit{advertiser} es quien dependiendo los datos enviados por el \textit{initiator} acepta o no la conexión.
+\item Connected: Cuando se establece una conexión ambos dispositivos pasan a estar en este estado.
 \end{itemize}
 
-Notar el uso de las mayúsculas y el punto al final de cada elemento.
+A su vez, la capa GAP define cuatro roles para los dispositivos [ref]:
 
-Si se desea poner una lista numerada el formato es este:
+\begin{itemize}
+\item \textit{Broadcaster}: el dispositivo es un anunciante que no se puede conectar.
+\item \textit{Observer}: el dispositivo busca anuncios pero no puede iniciar conexiones.
+\item \textit{Peripheral}: el dispositivo es un anunciante que se puede conectar y funciona como \item peripheral en una conexión de una sola capa de enlace.
+\item \textit{Central}: el dispositivo busca anuncios e inicia conexiones y funciona como central en una o varias conexiones.
+\end{itemize}
+
+\subsubsection{Capa GATT}
+La capa GATT es usada por la aplicación para el envío y recepción de los datos. Los datos son pasados y almacenados desde la aplicación de usuario al \textit{stack} bluetooth en forma de características. La capa GATT define los siguientes roles para los dispositivos que se encuentran conectados:
+\begin{itemize}
+\item GATT \textit{server}: Es el dispositivo que tiene la característica a ser leída o escrita por un GATT \textit{client}.
+\item GATT \textit{client}: Es el dispositivo que lee o escribe en la característica de un GATT \textit{server}.
+\end{itemize}
+
+Los roles de la capa GATT (\textit{client} o \textit{server}) son independientes de los roles de la capa GAP (\textit{peripheral} o \textit{central}). Un \textit{peripheral} puede ser tanto un GATT \textit{client} como un GATT \textit{server}, y lo mismo ocurre con un \textit{central}.
+
+Es importante destacar que el protocolo de comunicación BLE funciona por conexiones, cuando se tiene un nuevo dato no se transmite sino que se escribe en la característica para que el otro dispositivo que está conectado pueda ir a leerla. 
+
+\subsection{Requerimientos}
 
 \begin{enumerate}
-	\item Este es el primer elemento de la lista.
-	\item Este es el segundo elemento de la lista.
+	\item \textbf{Requerimientos de interfaces externas}
+		\begin{enumerate}
+			\item El software deberá comunicarse con el equipo de registro utilizando una interfaz BLE 5.0.
+			\item El software deberá comunicarse con el equipo de registro utilizando una interfaz RS485. 
+			\item El software deberá indicar mediante el led \#1 que está transmitiendo las señales adquiridas de forma inalámbrica o cableada. 
+			\item El software deberá indicar mediante el led \#2 si está encendido o apagado. También deberá indicar con el mismo led \#2 si entra en el modo pairing BLE.
+			\item El software deberá manejar una salida para sincronizar la adquisición con un estimulador externo (dispositivo externo como slave). La salida deberá poder configurarse entre normal bajo y normal alto. El pulso deberá poder configurarse entre 5 anchos de pulso diferentes (0,1 ms; 0,5 ms; 1 ms; 5 ms; 10 ms). 
+			\item El software deberá manejar una entrada para sincronizar la adquisición con un estimulador externo (dispositivo externo como master). La detección deberá ser por flanco y se deberá poder configurar si el flanco es de subida o de bajada.
+			\item El software deberá manejar el pulsador que servirá para encender el dispositivo y para realizar el pairing BLE.
+			\item El software deberá generar la señal de impedancia para los canales de potenciales evocados.
+			\item El software deberá medir el estado de las baterías con el ADC interno del MCU.
+		\end{enumerate}
+	\item \textbf{Requerimientos funcionales}
+		\begin{enumerate}
+			\item El software deberá configurar la frecuencia de muestreo de la señal adquirida entre 7 diferentes valores ( el ADC de ''EEG-FrontEnd\_v1.x.0.SchDoc” ofrece 250 Hz, 500 Hz, 1000 Hz, 2000 Hz, 4000 Hz, 8000 Hz y 16000 Hz).
+			\item El software deberá poder adquirir de 1 a 8 canales simultáneos.
+			\item Mediante comandos recibidos por BLE 5.0 o RS485 el software deberá poder iniciar y parar la adquisición.
+			\item El software deberá configurar la ganancia de amplificación de cada canal entre 7 diferentes valores ( el ADC de ''EEG-FrontEnd\_v1.x.0.SchDoc” ofrece 1, 2, 4, 6, 8, 12 y 24).
+			\item El software deberá configurar el ADC para usar una tipología de entrada diferencial o referencial.
+			\item El software deberá medir la impedancia de los electrodos con una señal de medición de impedancia cuya frecuencia deberá ser de 7,8 Hz o 31,2 Hz.
+			\item El software deberá seleccionar a qué electrodos le inyecta la señal de medición de impedancia.
+			\item El software deberá seleccionar para cada electrodo si usa la señal de impedancia generada por el ADC o la generada por el MCU.
+			\item El software deberá enviar la siguiente información de autodiagnóstico: temperatura del ADC, valor de las tensiones del ADC y frecuencia del clock del ADC.
+			\item El software deberá prender y apagar el equipo con una pulsación corta del botón, pulsación menor a 1 segundo.
+			\item El software deberá entrar en el modo de apareo de la comunicación BLE con una pulsación larga del botón, pulsación mayor a 4 segundos.
+			\item Luego de 1 minuto de inactividad, el software deberá entrar a un modo de bajo consumo de energía. Para esto deberá apagar el ADC, el transceiver RS485 y la alimentación de todos los periféricos externos al MCU.
+			\item El software deberá manejar una comunicación RS485 hasta 3 MBd.
+			\item El software deberá poder recibir comandos mientras está transmitiendo las señales adquiridas.
+
+		\end{enumerate}
+	\item \textbf{Requerimientos de documentación}
+		\begin{enumerate}
+			\item La documentación debe cumplir los requisitos de la norma ISO 62304.
+			\item Toda la documentación del proyecto se almacenará bajo un sistema de control de versiones GIT.
+			\item Toda la documentación del código se realizará utilizando la herramienta Doxygen.
+			\item Se deberá realizar un informe de avance del proyecto en el séptimo mes de trabajo
+			\item Se deberá realizar la memoria técnica del trabajo final con la plantilla elaborada por la cátedra de gestión de proyecto.
+		\end{enumerate}
+%	\item \textbf{Requerimientos futuros}
+%		\begin{enumerate}	
+%			\item En el futuro se prevé diseñar un hardware con hasta 32 canales de adquisición.
+			
+%		\end{enumerate}
 \end{enumerate}
 
-Notar el uso de las mayúsculas y el punto al final de cada elemento.
+\subsection{Herramientas de desarrollo}
+Para el desarrollo del firmware se utilizó el entorno de desarrollo integrado (IDE por sus siglas en inglés de Integrated Development Environment) Code Composer Studio (CCS) version: 10.4.0.00006 y el kit de desarrollo de software (SDK por sus siglas en inglés de Software Development Kit) SimpleLink CC2640R2 SDK: 5.10.00.02 ambos de Texas Instrument. 
 
-\subsection{Este es el título de una subsección}
-\label{subsec:ejemplo}
+Como plataforma de hardware se dispuso de 2 placas de desarrollo LAUNCHXL-CC2640R2 [REF]. En la figura \ref{fig:kitDesarrolloCC2640R2} podemos ver una de estas placas. Estas placas fueron de mucha utilidad para comenzar a familiarizarse con el dispositivo y las herramientas. 
 
-Se recomienda no utilizar \textbf{texto en negritas} en ningún párrafo, ni tampoco texto \underline{subrayado}. En cambio sí se debe utilizar \textit{texto en itálicas} para palabras en un idioma extranjero, al menos la primera vez que aparecen en el texto. En el caso de palabras que estamos inventando se deben utilizar ``comillas'', así como también para citas textuales. Por ejemplo, un \textit{digital filter} es una especie de ``selector'' que permite separar ciertos componentes armónicos en particular.
+\vspace{1cm}
 
-La escritura debe ser impersonal. Por ejemplo, no utilizar ``el diseño del firmware lo hice de acuerdo con tal principio'', sino ``el firmware fue diseñado utilizando tal principio''. 
-
-El trabajo es algo que al momento de escribir la memoria se supone que ya está concluido, entonces todo lo que se refiera a hacer el trabajo se narra en tiempo pasado, porque es algo que ya ocurrió. Por ejemplo, "se diseñó el firmware empleando la técnica de test driven development".
-
-En cambio, la memoria es algo que está vivo cada vez que el lector la lee. Por eso transcurre siempre en tiempo presente, como por ejemplo:
-
-``En el presente capítulo se da una visión global sobre las distintas pruebas realizadas y los resultados obtenidos. Se explica el modo en que fueron llevados a cabo los test unitarios y las pruebas del sistema''.
-
-Se recomienda no utilizar una sección de glosario sino colocar la descripción de las abreviaturas como parte del mismo cuerpo del texto. Por ejemplo, RTOS (\textit{Real Time Operating System}, Sistema Operativo de Tiempo Real) o en caso de considerarlo apropiado mediante notas a pie de página.
-
-Si se desea indicar alguna página web utilizar el siguiente formato de referencias bibliográficas, dónde las referencias se detallan en la sección de bibliografía de la memoria, utilizado el formato establecido por IEEE en \citep{IEEE:citation}. Por ejemplo, ``el presente trabajo se basa en la plataforma EDU-CIAA-NXP \citep{CIAA}, la cual...''.
-
-\subsection{Figuras} 
-
-Al insertar figuras en la memoria se deben considerar determinadas pautas. Para empezar, usar siempre tipografía claramente legible. Luego, tener claro que \textbf{es incorrecto} escribir por ejemplo esto: ``El diseño elegido es un cuadrado, como se ve en la siguiente figura:''
-
-\begin{figure}[h]
-\centering
-\includegraphics[scale=.45]{./Figures/cuadradoAzul.png}
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=1\textwidth]{./Figures/LaunchpadCC2640R2.png}
+	\caption{Kit de desarrollo launchpad CC2640R2.}
+	\label{fig:kitDesarrolloCC2640R2}
 \end{figure}
 
-La forma correcta de utilizar una figura es con referencias cruzadas, por ejemplo: ``Se eligió utilizar un cuadrado azul para el logo, como puede observarse en la figura \ref{fig:cuadradoAzul}''.
-
-\begin{figure}[ht]
-	\centering
-	\includegraphics[scale=.45]{./Figures/cuadradoAzul.png}
-	\caption{Ilustración del cuadrado azul que se eligió para el diseño del logo.}
-	\label{fig:cuadradoAzul}
-\end{figure}
-
-El texto de las figuras debe estar siempre en español, excepto que se decida reproducir una figura original tomada de alguna referencia. En ese caso la referencia de la cual se tomó la figura debe ser indicada en el epígrafe de la figura e incluida como una nota al pie, como se ilustra en la figura \ref{fig:palabraIngles}.
-
-\begin{figure}[htpb]
-	\centering
-	\includegraphics[scale=.3]{./Figures/word.jpeg}
-	\caption{Imagen tomada de la página oficial del procesador\protect\footnotemark.}
-	\label{fig:palabraIngles}
-\end{figure}
-
-\footnotetext{Imagen tomada de \url{https://goo.gl/images/i7C70w}}
-
-La figura y el epígrafe deben conformar una unidad cuyo significado principal pueda ser comprendido por el lector sin necesidad de leer el cuerpo central de la memoria. Para eso es necesario que el epígrafe sea todo lo detallado que corresponda y si en la figura se utilizan abreviaturas entonces aclarar su significado en el epígrafe o en la misma figura.
-
-
-
-\begin{figure}[ht]
-	\centering
-	\includegraphics[scale=.37]{./Figures/questionMark.png}
-	\caption{¿Por qué de pronto aparece esta figura?}
-	\label{fig:questionMark}
-\end{figure}
-
-Nunca colocar una figura en el documento antes de hacer la primera referencia a ella, como se ilustra con la figura \ref{fig:questionMark}, porque sino el lector no comprenderá por qué de pronto aparece la figura en el documento, lo que distraerá su atención.
-
-Otra posibilidad es utilizar el entorno \textit{subfigure} para incluir más de una figura, como se puede ver en la figura \ref{fig:three graphs}. Notar que se pueden referenciar también las figuras internas individualmente de esta manera: \ref{fig:1de3}, \ref{fig:2de3} y \ref{fig:3de3}.
- 
-\begin{figure}[!htpb]
-     \centering
-     \begin{subfigure}[b]{0.3\textwidth}
-         \centering
-         \includegraphics[width=.65\textwidth]{./Figures/questionMark}
-         \caption{Un caption.}
-         \label{fig:1de3}
-     \end{subfigure}
-     \hfill
-     \begin{subfigure}[b]{0.3\textwidth}
-         \centering
-         \includegraphics[width=.65\textwidth]{./Figures/questionMark}
-         \caption{Otro.}
-         \label{fig:2de3}
-     \end{subfigure}
-     \hfill
-     \begin{subfigure}[b]{0.3\textwidth}
-         \centering
-         \includegraphics[width=.65\textwidth]{./Figures/questionMark}
-         \caption{Y otro más.}
-         \label{fig:3de3}
-     \end{subfigure}
-        \caption{Tres gráficos simples}
-        \label{fig:three graphs}
-\end{figure}
-
-El código para generar las imágenes se encuentra disponible para su reutilización en el archivo \file{Chapter2.tex}.
-
-\subsection{Tablas}
-
-Para las tablas utilizar el mismo formato que para las figuras, sólo que el epígrafe se debe colocar arriba de la tabla, como se ilustra en la tabla \ref{tab:peces}. Observar que sólo algunas filas van con líneas visibles y notar el uso de las negritas para los encabezados.  La referencia se logra utilizando el comando \verb|\ref{<label>}| donde label debe estar definida dentro del entorno de la tabla.
-
-\begin{verbatim}
-\begin{table}[h]
-	\centering
-	\caption[caption corto]{caption largo más descriptivo}
-	\begin{tabular}{l c c}    
-		\toprule
-		\textbf{Especie}     & \textbf{Tamaño} & \textbf{Valor}\\
-		\midrule
-		Amphiprion Ocellaris & 10 cm           & \$ 6.000 \\		
-		Hepatus Blue Tang    & 15 cm           & \$ 7.000 \\
-		Zebrasoma Xanthurus  & 12 cm           & \$ 6.800 \\
-		\bottomrule
-		\hline
-	\end{tabular}
-	\label{tab:peces}
-\end{table}
-\end{verbatim}
-
-
-\begin{table}[h]
-	\centering
-	\caption[caption corto]{caption largo más descriptivo}
-	\begin{tabular}{l c c}    
-		\toprule
-		\textbf{Especie} 	 & \textbf{Tamaño} 		& \textbf{Valor}  \\
-		\midrule
-		Amphiprion Ocellaris & 10 cm 				& \$ 6.000 \\		
-		Hepatus Blue Tang	 & 15 cm				& \$ 7.000 \\
-		Zebrasoma Xanthurus	 & 12 cm				& \$ 6.800 \\
-		\bottomrule
-		\hline
-	\end{tabular}
-	\label{tab:peces}
-\end{table}
-
-En cada capítulo se debe reiniciar el número de conteo de las figuras y las tablas, por ejemplo, figura 2.1 o tabla 2.1, pero no se debe reiniciar el conteo en cada sección. Por suerte la plantilla se encarga de esto por nosotros.
-
-\subsection{Ecuaciones}
-\label{sec:Ecuaciones}
-
-Al insertar ecuaciones en la memoria dentro de un entorno \textit{equation}, éstas se numeran en forma automática  y se pueden referir al igual que como se hace con las figuras y tablas, por ejemplo ver la ecuación \ref{eq:metric}.
-
-\begin{equation}
-	\label{eq:metric}
-	ds^2 = c^2 dt^2 \left( \frac{d\sigma^2}{1-k\sigma^2} + \sigma^2\left[ d\theta^2 + \sin^2\theta d\phi^2 \right] \right)
-\end{equation}
-                                                        
-Es importante tener presente que si bien las ecuaciones pueden ser referidas por su número, también es correcto utilizar los dos puntos, como por ejemplo ``la expresión matemática que describe este comportamiento es la siguiente:''
-
-\begin{equation}
-	\label{eq:schrodinger}
-	\frac{\hbar^2}{2m}\nabla^2\Psi + V(\mathbf{r})\Psi = -i\hbar \frac{\partial\Psi}{\partial t}
-\end{equation}
-
-Para generar la ecuación \ref{eq:metric} se utilizó el siguiente código:
-
-\begin{verbatim}
-\begin{equation}
-	\label{eq:metric}
-	ds^2 = c^2 dt^2 \left( \frac{d\sigma^2}{1-k\sigma^2} + 
-	\sigma^2\left[ d\theta^2 + 
-	\sin^2\theta d\phi^2 \right] \right)
-\end{equation}
-\end{verbatim}
-
-Y para la ecuación \ref{eq:schrodinger}:
-
-\begin{verbatim}
-\begin{equation}
-	\label{eq:schrodinger}
-	\frac{\hbar^2}{2m}\nabla^2\Psi + V(\mathbf{r})\Psi = 
-	-i\hbar \frac{\partial\Psi}{\partial t}
-\end{equation}
-
-\end{verbatim}
+\vspace{1cm}
