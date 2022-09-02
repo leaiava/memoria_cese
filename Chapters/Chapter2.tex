@@ -23,7 +23,7 @@ El DASN está integrado en una sola placa y es un dispositivo portátil alimenta
 \vspace{1cm}
 
 \subsection{Circuito de entrada}
-El circuito de entrada del DASN está basado en un circuito integrado ADS1299 [Ref], el cual es un \textit{Analog front end} (AFE). Los AFE son dispositivos que incorporan la parte analógica para el acondicionamiento de la señal y el conversor analógico digital para poder digitalizar la señal y leerla desde un microcontrolador. En particular el ADS1299 es un dispositivo de 8 canales, 24 bits por canal, conversión analógica digital zigma delta simultánea, con amplificadores de ganancia programable y un circuito multiplexor que permite conectar las entradas de múltiples formas que lo hacen ideal para el registro de biopotenciales y en particular de señales de EEG. En la figura \ref{fig:diagBloquesADS1299} podemos ver un diagrama en bloques del ADS1299
+El circuito de entrada del DASN está basado en un circuito integrado ADS1299 \citep{REF}, el cual es un \textit{Analog front end} (AFE). Los AFE son dispositivos que incorporan la parte analógica para el acondicionamiento de la señal y el conversor analógico digital para poder digitalizar la señal y leerla desde un microcontrolador. En particular el ADS1299 es un dispositivo de 8 canales, 24 bits por canal, conversión analógica digital zigma delta simultánea, con amplificadores de ganancia programable y un circuito multiplexor que permite conectar las entradas de múltiples formas que lo hacen ideal para el registro de biopotenciales y en particular de señales de EEG. En la figura \ref{fig:diagBloquesADS1299} podemos ver un diagrama en bloques del ADS1299
 
 \vspace{1cm}
 
@@ -94,10 +94,10 @@ Es importante destacar que el protocolo de comunicación BLE funciona por conexi
 		\end{enumerate}
 	\item \textbf{Requerimientos funcionales}
 		\begin{enumerate}
-			\item El software deberá configurar la frecuencia de muestreo de la señal adquirida entre 7 diferentes valores ( el ADC de ''EEG-FrontEnd\_v1.x.0.SchDoc” ofrece 250 Hz, 500 Hz, 1000 Hz, 2000 Hz, 4000 Hz, 8000 Hz y 16000 Hz).
+			\item El software deberá configurar la frecuencia de muestreo de la señal adquirida entre 7 diferentes valores (250 Hz, 500 Hz, 1000 Hz, 2000 Hz, 4000 Hz, 8000 Hz y 16000 Hz).
 			\item El software deberá poder adquirir de 1 a 8 canales simultáneos.
 			\item Mediante comandos recibidos por BLE 5.0 o RS485 el software deberá poder iniciar y parar la adquisición.
-			\item El software deberá configurar la ganancia de amplificación de cada canal entre 7 diferentes valores ( el ADC de ''EEG-FrontEnd\_v1.x.0.SchDoc” ofrece 1, 2, 4, 6, 8, 12 y 24).
+			\item El software deberá configurar la ganancia de amplificación de cada canal entre 7 diferentes valores (1, 2, 4, 6, 8, 12 y 24).
 			\item El software deberá configurar el ADC para usar una tipología de entrada diferencial o referencial.
 			\item El software deberá medir la impedancia de los electrodos con una señal de medición de impedancia cuya frecuencia deberá ser de 7,8 Hz o 31,2 Hz.
 			\item El software deberá seleccionar a qué electrodos le inyecta la señal de medición de impedancia.
@@ -126,15 +126,19 @@ Es importante destacar que el protocolo de comunicación BLE funciona por conexi
 \end{enumerate}
 
 \subsection{Herramientas de desarrollo}
-Para el desarrollo del firmware se utilizó el entorno de desarrollo integrado (IDE por sus siglas en inglés de Integrated Development Environment) Code Composer Studio (CCS) version: 10.4.0.00006 y el kit de desarrollo de software (SDK por sus siglas en inglés de Software Development Kit) SimpleLink CC2640R2 SDK: 5.10.00.02 ambos de Texas Instrument. 
+IDE: Code Composer Studio (CCS) version: 10.4.0.00006
 
-Como plataforma de hardware se dispuso de 2 placas de desarrollo LAUNCHXL-CC2640R2 [REF]. En la figura \ref{fig:kitDesarrolloCC2640R2} podemos ver una de estas placas. Estas placas fueron de mucha utilidad para comenzar a familiarizarse con el dispositivo y las herramientas. 
+SDK: SimpleLink CC2640R2 SDK: 5.10.00.02
+
+Plataforma de hardware: se dispuso de 2 placas de desarrollo LAUNCHXL-CC2640R2 \citep{REF}. En la figura \ref{fig:kitDesarrolloCC2640R2} podemos ver una de estas placas.
+
+
 
 \vspace{1cm}
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=1\textwidth]{./Figures/LaunchpadCC2640R2.png}
+	\includegraphics[width=.7\textwidth]{./Figures/LaunchpadCC2640R2.png}
 	\caption{Kit de desarrollo launchpad CC2640R2.}
 	\label{fig:kitDesarrolloCC2640R2}
 \end{figure}
