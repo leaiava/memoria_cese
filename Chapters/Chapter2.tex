@@ -5,11 +5,11 @@
 %----------------------------------------------------------------------------------------
 %	SECTION 1
 %----------------------------------------------------------------------------------------
-En este capítulo se desarrollan las partes constituyentes del dispositivo de adquisición de señales neurofisiológicas, se introduce a su hardware y al stack bluetooth. Adicionalmente se muestran las herramientas de desarrollo utilizadas en el proyecto.
+En este capítulo se hace mención a las partes constituyentes del dispositivo de adquisición de señales neurofisiológicas, se introduce a su hardware y al stack Bluetooth. Adicionalmente se muestran las herramientas de desarrollo utilizadas en el proyecto.
 
 \section{Hardware del DASN}
-\label{sec:ejemplo}
-El DASN está integrado en una sola placa y es un dispositivo portátil alimentado por baterías. Su arquitectura está basada en dos circuitos integrados principales, el microcontrolador CC2640R2 y el analog front end ADS1299. En la figura \ref{fig:diagBloquesHardware} podemos ver un diagrama en bloques del hardware.
+\label{sec:Hard}
+El DASN está integrado en una sola placa y es un dispositivo portátil alimentado por baterías. Su arquitectura está basada en dos circuitos integrados principales, el microcontrolador CC2640R2 y \textit{Analog front end} (AFE) ADS1299. Los AFE son dispositivos que incorporan la parte analógica para el acondicionamiento de la señal y el conversor analógico digital para poder digitalizar la señal. En la figura \ref{fig:diagBloquesHardware} se puede ver un diagrama en bloques del hardware.
 
 \vspace{1cm}
 
@@ -23,62 +23,73 @@ El DASN está integrado en una sola placa y es un dispositivo portátil alimenta
 \vspace{1cm}
 
 \subsection{Circuito de entrada}
-El circuito de entrada del DASN está basado en un circuito integrado ADS1299 \citep{REF}, el cual es un \textit{Analog front end} (AFE). Los AFE son dispositivos que incorporan la parte analógica para el acondicionamiento de la señal y el conversor analógico digital para poder digitalizar la señal y leerla desde un microcontrolador. En particular el ADS1299 es un dispositivo de 8 canales, 24 bits por canal, conversión analógica digital zigma delta simultánea, con amplificadores de ganancia programable y un circuito multiplexor que permite conectar las entradas de múltiples formas que lo hacen ideal para el registro de biopotenciales y en particular de señales de EEG. En la figura \ref{fig:diagBloquesADS1299} podemos ver un diagrama en bloques del ADS1299
+el circuito de entrada del DASN está basado en un circuito integrado ADS1299 \citep{PART:ADS1299}, como se explicó en la sección \ref{sec:Hard} es un AFE. En particular el ADS1299 es un dispositivo de 8 canales, 24 bits por canal, conversión analógica digital sigma delta simultánea, con amplificadores de ganancia programable y un circuito multiplexor que permite conectar las entradas de múltiples formas que lo hacen ideal para el registro de biopotenciales y en particular de señales de EEG. En la figura \ref{fig:diagBloquesADS1299} se puede ver el diagrama en bloques del ADS1299
 
 \vspace{1cm}
 
 \begin{figure}[htbp]
 	\centering
 	\includegraphics[width=1\textwidth]{./Figures/DiagramaEnBloquesADS1299.png}
-	\caption{Diagrama en bloques del ADS1299.}
+	\caption{Diagrama en bloques del ADS1299 \protect\footnotemark.}
 	\label{fig:diagBloquesADS1299}
 \end{figure}
 
 \vspace{1cm}
+\footnotetext{Imagen tomada de la hoja de datos del ADS1299 \citep{PART:ADS1299}.}
 
 El ADS1299 posee un puerto de comunicación SPI. Adicionalmente se dispone de señales de control para poder configurar y controlar el dispositivo. El microcontrolador del DASN está conectado a todas estas interfaces de control del ADS1299.
 
-El DASN posee siete canales idénticos, los cuales solo poseen un filtro de radiofrecuencia entre el paciente y el AFE. El octavo canal, es un canal de potenciales evocados, los potenicales evocados son señales con amplitudes menores a 1 uVpp, lo que hace imposible medirlos con el ADS1299 ya que el ruido reflejado a la entrada del dispositivo es de 1 uVpp. Para solucionar este inconveniente el DASN incorpora un circuito amplificador de alto rechazo de modo común, el cual acondiciona la señal de potenciales evocados a niveles que puedan ser adquiridos con el ADS1299. 
+El DASN posee un canal de potenciales evocados. Esta señal tiene una amplitud menor al ruido de entrada del ADS1299. Para poder medir este biopotencial el DASN incorpora un amplificador entre el paciente y el AFE para adaptar los niveles de la señal. El resto de los canales solo incorporan un filtro de radiofrecuencia pasivo. 
+
+Debido al amplificador extra que incorpora el canal de potenciales evocados, no se puede medir la impedancia de los electrodos de este canal con la señal de impedancia que genera el AFE ya que no se está en contacto con el paciente.
 
 \subsection{Microcontrolador y comunicación inalámbrica}
-El DASN posee un microcontrolador CC2640R2, el cual tiene una arquitectura Arm® Cortex®-M3. Este microcontrolador posee integrado un \textit{tranceiver} de 2.4 GHz compatible con la tecnología bluetooth de baja energía 5.1 y versiones anteriores del stack bluetooth [REF]. El hecho de tener este tipo de microcontrolador con el \textit{tranceiver} integrado permite configurar el stack bluetooth por completo, con lo que se logran mejores prestaciones en consumo y ancho de banda al poder elegir el protocolo de comunicación y modo de trabajo. La placa del DASN posee una antena tipo F [REF] integrada en el circuito impreso y también ofrece la posibilidad de conectar una antena externa. 
+El DASN posee un microcontrolador CC2640R2 con arquitectura Arm® Cortex®-M3. Este microcontrolador posee integrado un \textit{tranceiver} de 2.4 GHz compatible con la tecnología Bluetooth de baja energía 5.1 y versiones anteriores del stack Bluetooth \citep{PAPER:STACKBLE}. El hecho de tener este tipo de microcontrolador con el \textit{tranceiver} integrado permite configurar el stack Bluetooth por completo, con lo que se logran mejores prestaciones en consumo y ancho de banda al poder elegir el protocolo de comunicación y el modo de trabajo. La placa del DASN posee una antena tipo F \citep{PAPER:ANTENAF} integrada en el circuito impreso y también ofrece la posibilidad de conectar una antena externa. 
 
-\subsection{Conceptos básicos del stack bluetooth 5.0}
-Se darán algunos conceptos básicos sobre el stack bluetooth ya que ayudarán a entender las configuraciones realizadas que se verán en el siguiente capítulo. Usaré los nombres en inglés ya que muchos términos no tienen traducción y la mayoría de la bibliografía así los referencia. El bluetooth de baja energía, también conocido por sus siglas en inglés como BLE, se divide en distintas capas. La aplicación de usuario entra en contacto con las dos capas superiores del stack bluetooth, la capa GAP y la capa GATT. A través de estas capas es que el software del DASN configura y maneja la comunicación BLE, por esta razón aborde con un poco más de profundidad estos temas.
+\subsection{Conceptos básicos del stack Bluetooth 5.0}
+\label{subsec:ConceptosBLE}
+%Saco el siguiente párrafo por recomendación de Matias.
+%Se darán algunos conceptos básicos sobre el stack Bluetooth ya que ayudarán a entender las configuraciones realizadas que se verán en el siguiente capítulo. A lo largo de la memoria se usan los nombres en inglés ya que muchos términos no tienen traducción y la mayoría de la bibliografía así los referencia. 
+El Bluetooth de baja energía, también conocido por sus siglas en inglés como BLE, se divide en distintas capas. La aplicación de usuario entra en contacto con las dos capas superiores del stack Bluetooth, la capa GAP y la capa GATT. A través de estas capas es que el software del DASN configura y maneja la comunicación BLE.
 
 \subsubsection{Capa GAP}
-La capa GAP del stack bluetooth es responsable de las conexiones. De acuerdo a la definición de esta capa un dispositivo bluetooth se puede encontrar en uno de los siguientes estados:
+La capa GAP del stack Bluetooth es responsable de las conexiones. De acuerdo a la definición de esta capa un dispositivo Bluetooth se puede encontrar en uno de los siguientes estados:
 
 \begin{itemize}
 \item \textit{Standby}: el dispositivo se encuentra en el estado inactivo inicial al reiniciarse.
-\item \textit{Advertising}: El dispositivo se anuncia con datos específicos que le permiten a cualquier dispositivo saber que es un dispositivo conectable (este anuncio contiene la dirección del dispositivo y puede contener algunos datos adicionales, como el nombre del dispositivo).
-\item \textit{Scanning}: En este estado se escuchan los mensajes enviados por algún \textit{advertiser}.
-\item \textit{Initiating}: En este estado se inicia la conexión, pero el \textit{advertiser} es quien dependiendo los datos enviados por el \textit{initiator} acepta o no la conexión.
-\item Connected: Cuando se establece una conexión ambos dispositivos pasan a estar en este estado.
+\item \textit{Advertising}: el dispositivo se anuncia con datos específicos que le permiten a cualquier dispositivo saber que es un dispositivo conectable. Este anuncio contiene la dirección del dispositivo y puede contener algunos datos adicionales, como el nombre del dispositivo.
+\item \textit{Scanning}: se escuchan los mensajes enviados por algún \textit{advertiser}.
+\item \textit{Initiating}: se inicia la conexión, pero el \textit{advertiser} es quien dependiendo los datos enviados por el \textit{initiator} acepta o no la conexión.
+\item \textit{Connected}: Cuando se establece una conexión entre ambos dispositivos.
 \end{itemize}
 
 A su vez, la capa GAP define cuatro roles para los dispositivos [ref]:
 
 \begin{itemize}
-\item \textit{Broadcaster}: el dispositivo es un anunciante que no se puede conectar.
-\item \textit{Observer}: el dispositivo busca anuncios pero no puede iniciar conexiones.
-\item \textit{Peripheral}: el dispositivo es un anunciante que se puede conectar y funciona como \item peripheral en una conexión de una sola capa de enlace.
-\item \textit{Central}: el dispositivo busca anuncios e inicia conexiones y funciona como central en una o varias conexiones.
+\item \textit{Broadcaster}: es un anunciante que no se puede conectar.
+\item \textit{Observer}: busca anuncios pero no puede iniciar conexiones.
+\item \textit{Peripheral}: es un anunciante que se puede conectar y funciona como \textit{peripheral} en una conexión de una sola capa de enlace.
+\item \textit{Central}: busca anuncios e inicia conexiones y funciona como central en una o varias conexiones.
 \end{itemize}
 
 \subsubsection{Capa GATT}
-La capa GATT es usada por la aplicación para el envío y recepción de los datos. Los datos son pasados y almacenados desde la aplicación de usuario al \textit{stack} bluetooth en forma de características. La capa GATT define los siguientes roles para los dispositivos que se encuentran conectados:
+La capa GATT es usada por la aplicación para el envío y recepción de los datos. Los datos son pasados y almacenados desde la aplicación de usuario al \textit{stack} Bluetooth en forma de características. La capa GATT define los siguientes roles para los dispositivos que se encuentran conectados:
 \begin{itemize}
-\item GATT \textit{server}: Es el dispositivo que tiene la característica a ser leída o escrita por un GATT \textit{client}.
-\item GATT \textit{client}: Es el dispositivo que lee o escribe en la característica de un GATT \textit{server}.
+\item GATT \textit{server}: Es el dispositivo que tiene el espacio de memoria para la información que va a ser leída o escrita por un GATT \textit{client}.
+\item GATT \textit{client}: Es el dispositivo que lee o escribe información de un GATT \textit{server}.
 \end{itemize}
 
 Los roles de la capa GATT (\textit{client} o \textit{server}) son independientes de los roles de la capa GAP (\textit{peripheral} o \textit{central}). Un \textit{peripheral} puede ser tanto un GATT \textit{client} como un GATT \textit{server}, y lo mismo ocurre con un \textit{central}.
 
-Es importante destacar que el protocolo de comunicación BLE funciona por conexiones, cuando se tiene un nuevo dato no se transmite sino que se escribe en la característica para que el otro dispositivo que está conectado pueda ir a leerla. 
+Es importante destacar que el protocolo de comunicación BLE funciona por conexiones. Cuando se tiene un nuevo dato no se transmite directamente sino que se deja lista para que el otro dispositivo que está conectado pueda ir a leerla. 
+
+\subsubsection{GATT \textit{characteristics} y \textit{attributes}}
+\textit{Characteristics} y \textit{attributes} son dos términos muy usados cuando hablamos de la configuración Bluetooth. Las \textit{characteristics} agrupan información llamada \textit{attribute}. \textit{Attribute} es la información que realmente se transfiere entre dispositivos. Las \textit{characteristics} organizan y usan los \textit{attributes} de distintas maneras, los pueden usar como campo de datos, propiedades y configuraciones. 
+
+\subsubsection{GATT \textit{services} y \textit{profile}}
+Un GATT \textit{service} es un conjunto de \textit{characteristics}. Por ejemplo, los dispositivos para medir frecuencia cardíaca tienen un \textit{service} de frecuencia cardíaca que contiene una \textit{characteristic} para la medición de la frecuencia cardíaca y otra con la ubicación del dispositivo en el cuerpo, entre tantas otras. Se pueden agrupar varios \textit{services} para formar un \textit{profile}. Muchos \textit{profile} solo implementan un \textit{service}, por lo que los dos términos a veces se usan indistintamente.
 
 \subsection{Requerimientos}
-
 \begin{enumerate}
 	\item \textbf{Requerimientos de interfaces externas}
 		\begin{enumerate}
@@ -126,21 +137,17 @@ Es importante destacar que el protocolo de comunicación BLE funciona por conexi
 \end{enumerate}
 
 \subsection{Herramientas de desarrollo}
-IDE: Code Composer Studio (CCS) version: 10.4.0.00006
+Para el desarrollo del firmware se utilizó el entorno de desarrollo integrado (IDE por sus siglas en inglés de Integrated Development Environment) Code Composer Studio (CCS) version: 10.4.0.00006 y el kit de desarrollo de software (SDK por sus siglas en inglés de Software Development Kit) SimpleLink CC2640R2 SDK: 5.10.00.02 ambos de Texas Instrument. 
 
-SDK: SimpleLink CC2640R2 SDK: 5.10.00.02
-
-Plataforma de hardware: se dispuso de 2 placas de desarrollo LAUNCHXL-CC2640R2 \citep{REF}. En la figura \ref{fig:kitDesarrolloCC2640R2} podemos ver una de estas placas.
-
-
+Como plataforma de hardware se dispuso de 2 placas de desarrollo LAUNCHXL-CC2640R2 \citep{PART:LAUNCHXL}. En la figura \ref{fig:kitDesarrolloCC2640R2} podemos ver una de estas placas. Estas placas fueron de mucha utilidad para comenzar a familiarizarse con el dispositivo y las herramientas.
 
 \vspace{1cm}
 
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=.7\textwidth]{./Figures/LaunchpadCC2640R2.png}
+	\includegraphics[width=.6\textwidth]{./Figures/LaunchpadCC2640R2.png}
 	\caption{Kit de desarrollo launchpad CC2640R2.}
 	\label{fig:kitDesarrolloCC2640R2}
 \end{figure}
 
-\vspace{1cm}
+%\vspace{1cm}
