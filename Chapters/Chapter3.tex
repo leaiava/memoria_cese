@@ -89,11 +89,9 @@ Se planteó una arquitectura modular, donde cada módulo encapsule sus funciones
 %Explicación del módulo de control
 Este módulo es el módulo principal, esta desarrollado en los archivos DASN\_app.c y DASN\_app.h. Corre en una tarea del sistema operativo y es el encargado de inicializar el hardware y los distintos módulos. Una vez inicializado queda a la espera de recibir eventos a través de la API Event\_pend(), la cual es una función no bloqueante. Se lee el evento recibido y se ejecuta la tarea correspondiente. 
 
-(CONTINUARÁ...)
-
 \section{Módulo BLE}
 %Explicación de como funciona el módulo
-Como se explicó previamente en la sección \ref{subsec:ArqSistema}, a través de a API vamos a hacer uso del stack Bluetooth. A continuación se detallan las configuraciones principales que se llevaron a cabo para el desarrollo del DASN. 
+Como se explicó previamente en la sección \ref{subsec:ArqSistema}, a través de una API vamos a hacer uso del stack Bluetooth. A continuación se detallan las configuraciones principales que se llevaron a cabo para el desarrollo del DASN. 
 
 \subsection{Configuración capa GAP}
 Como vimos en la sección \ref{subsec:ConceptosBLE} se le debe asignar un rol al DASN dentro de la capa GAP. El DASN por ser un dispositivo portable necesita anunciarse al resto de los dispositivos y entablar una conexión para transmitir los datos adquiridos. El rol que cumple con estos requisitos es el de un \textit{peripheral}. Para configurar al dispositivo como un \textit{peripheral} en la inicialización del módulo BLE debemos hacer uso de la siguiente API:
@@ -201,7 +199,7 @@ Cada \textit{service} y \textit{characteristic} requiere un número de identific
 // Stream Characteristic defines
 #define DS_STREAM_ID                  2
 #define DS_STREAM_UUID                0x1133
-#define DS_STREAM_LEN                 32
+#define DS_STREAM_LEN                 27
 #define DS_STREAM_LEN_MIN             0
 \end{lstlisting}
 
@@ -281,10 +279,9 @@ static gattAttribute_t Data_ServiceAttrTbl[] =
 
 Otro item a destacar de la tabla de \textit{attributes} es que tanto el DS\_CMD\_SND y DS\_STREAM tienen un \textit{attribute} CCCD (de sus siglas en ingles \textit{Client Characteristic Configuration Descriptor}). Este \textit{attribute} sirve para que la \textit{characteristic} se pueda configurar para que el GATT \textit{server} envíe una notificación al GATT \textit{client} cuando haya cambiado el valor de una \textit{characteristic}. Esta es una configuración muy importante ya que determina la forma de funcionamiento del DASN. El DASN cuando tiene un nuevo dato para enviarle al equipo de registro escribe la \textit{characteristic}, ya sea el dato adquirido o un comando de respuesta, con el valor correspondiente y gracias a esta configuración es que el equipo de registro se entera que hay un nuevo dato. 
 
-\newpage
 \section{Módulo de adquisición}
 %Explicación del módulo de adquisición
-Este módulo es el encargado de manejar la comunicación SPI con el ADS1299. Corre en una tarea independiente y se comunica con el módulo de control a travéz de una cola para pasar los datos adquiridos.
+Este módulo es el encargado de manejar la comunicación SPI con el ADS1299. Corre en una tarea independiente del sistema operativo y se comunica con el módulo de control a través de una cola para pasar los datos adquiridos.
 
 
 \subsection{Máquina de estados}
@@ -315,6 +312,7 @@ A continuación se describen los estados:
 %Explicacioón del protocolo de comunicación desarrollado.
 %Tabla de comandos
 La comunicación entre el \textit{server} y el \textit{client} se realiza leyendo y escribiendo en las \textit{characteristics} DS\_CMD\_SND y DS\_CMD\_RCV. En la tabla \ref{tab:Comandos} se puede ver la lista de comandos con su descripción.
+
 \begin{table}[h]
 \centering
 \caption[Tabla de comandos]{Tabla de comandos}
@@ -350,6 +348,14 @@ PARAR           	&	0x19	&	Para la adquisición\\
 LEER\_ESTADO		&	0x1A	&	Pregunta en que estado se encuentra\\
 WAKE\_UP       	&	0x1B	&	Actualiza la máquina de estados\\
 ZSIGNAL\_31\_2	&	0x1C	&	Habilita señal de impedancia de 31,2 Hz\\
+\end{tabular}
+\label{tab:Comandos}
+\end{table}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{l c c}
+
 ZSIGNAL\_7\_8	&	0x1D	&	Habilita señal de impedancia de 7,8 Hz\\
 ZSIGNAL\_OFF		&	0x1E	&	Deshabilita señal de impedancia\\
 RESET			&	0x1F	&	Reinicia el dispositivo\\
@@ -357,11 +363,12 @@ RESET			&	0x1F	&	Reinicia el dispositivo\\
 \bottomrule
 \hline
 \end{tabular}
-\label{tab:Comandos}
 \end{table}
 
+Los datos adquiridos se transmiten con la \textit{characteristic} DS\_STREAM. Tiene un tamaño de 27 bytes, los primeros 3 bytes corresponden a un canal \textit{status} y a continuación los 8 canales con 3 bytes por canal. En el canal de \textit{status} se tiene la información de si algún electrodo se desconectó y también del estad de los cuatro GPIOs que dispone el ADS1299.  
 
 \subsection{Configuración del puerto SPI}
+\label{configSPI}
 El puerto SPI se configura en modo \textit{callback}, en este modo la comunicación no es bloqueante. Al momento de inicializar el puerto SPI se carga con un puntero a la función de \textit{callback} que se ejecutará al terminarse una transacción de lectura o escritura del puerto. La tabla \ref{tab:ParamSPI} muestra la configuración del puerto.
 
 \begin{table}[h]
@@ -382,33 +389,173 @@ El puerto SPI se configura en modo \textit{callback}, en este modo la comunicaci
 \end{tabular}
 \label{tab:ParamSPI}
 \end{table}
+
 \subsubsection{Frecuencia del clock}
 \label{subsub:clockSPI}
-En figura \ref{fig:DataOut} se muestra la trama de datos de salida del ADS1299. La trama de datos siempre es de 216 bits, no importa si hay canale apagados o no. Esto es así ya que los canales apagados se leen en cero. Considerando que la mayor frecuencia de muestreo es 16 kHz, la frecuencia mínima del clock del SPI debe ser:
+En la figura \ref{fig:DataOut} se muestra la trama de datos de salida del ADS1299. La trama de datos siempre es de 216 bits, no importa si hay canales apagados o no. Esto es así ya que los canales apagados se leen en cero. Considerando que la mayor frecuencia de muestreo es 16 kHz, la frecuencia mínima del clock del SPI debe ser:
 
 \begin{equation}
 	\label{eq:bitrate}
 	ClockSPI > 216 * 16 kHz = 3,456 MHz
 \end{equation}
 
-\vspace{1cm}
 \begin{figure}[htbp]
 	\centering
-	\includegraphics[width=1\textwidth]{./Figures/SPIDataOutput.png}
+	\includegraphics[width=.9\textwidth]{./Figures/SPIDataOutput.png}
 	\caption{SPI BUS \textit{data output} \protect\footnotemark.}
 	\label{fig:DataOut}
 \end{figure}
-\vspace{1cm}
-
 \footnotetext{Imagen tomada de la hoja de datos del ADS1299 \citep{PART:ADS1299}.}
+
+Como se puede ver en la la tabla \ref{tab:ParamSPI} se elige una frecuencia de 4 MHz
 
 
 \subsection{Configuración ADS1299}
 %Explicacion de como se configura el dispositivo y los principales registros.
 %Tabla de registros
-(TBD)
+En la tabla \ref{tab:ComandosADS1299} se muestran los comandos que se le pueden enviar al ADS1299.
 
-\section{Módulo Interfaz de ususario}
+\begin{table}[h]
+\centering
+\caption[Comandos ADS1299]{Comandos ADS1299}
+\begin{tabular}{l c c}
+\toprule
+\textbf{Comando} & \textbf{Valor} & \textbf{Descripción}\\
+\midrule
+
+WAKEUP\_CMD	& 0x02 & Sale del modo \textit{stand by}.\\
+STANDBY\_CMD	& 0x04 & Entra en el modo \textit{stand by}.\\
+RESET\_CMD	& 0x06 & Reset del dispositivo.\\
+START\_CMD 	& 0x08 & Comienzo y sincronización de la conversión.\\
+STOP\_CMD 	& 0x0A & Detiene la conversión.\\
+RDATAC\_CMD 	& 0x10 & Habilita el modo de lectura continua de datos.\\
+SDATAC\_CMD	& 0x11 & Detiene la lectura continua de datos.\\
+RDATA\_CMD 	& 0x12 & Lee un \textit{stream} de datos.\\
+RREG	\_CMD	& 0x2x & Lee n registros comenzando por la dirección\\
+			&      & especificada en los 5 bits menos significativos\\
+			&      & del comando. La cantidad n de registros a leer \\
+			&      & se especifica en el siguiente byte enviado.\\
+WREG\_CMD 	& 0x4x & Escribe n registros, registro y cantidad \\
+			&      & idem que RREG\_CMD.\\
+\bottomrule
+\hline
+\end{tabular}
+\label{tab:ComandosADS1299}
+\end{table}
+
+Para configurar y utilizar el ADS1299 se crearon funciones para este fin. En el código \ref{codigo:WriteReg} vemos la función para escribir en un registro interno que es parte del archivo \textit{DASN\_ADS1299.c}. Esta función recibe como parámetro el registro y el valor a escribir y hace uso de los comandos mostrados en la tabla \ref{tab:ComandosADS1299}.
+
+\begin{lstlisting}[caption= Función para escribir un registro del ADS1299. , firstnumber=524 , label=codigo:WriteReg]
+/**
+ * @brief   Escribe en un registro interno del ads1299
+ *
+ * @param   registro    : Registro a escribir del tipo registers_t.
+ * @param   data        : Palabra a escribir en el registro
+ */
+void ads1299_writeRegister(registers_t registro, uint8_t data)
+{
+    // Se configura la transaccion
+    ads1299transaction.count = 5;
+    ads1299transaction.txBuf = txbuf;
+    ads1299transaction.rxBuf = rxbuf;
+    *(transaction_t*)(ads1299transaction.arg) = WRITE_REG;
+
+    ((uint8_t*)ads1299transaction.txBuf)[0] = SDATAC_CMD;              ///< Necesario si esta en RDATAC mode
+    ((uint8_t*)ads1299transaction.txBuf)[1] = (WREG_CMD | registro);   ///< Se hace la OR para tener el valor del comando compuesto
+    ((uint8_t*)ads1299transaction.txBuf)[2] = NULL_CMD;                ///< Indica que se lee un solo registro
+    ((uint8_t*)ads1299transaction.txBuf)[3] = data;
+
+    ((uint8_t*)ads1299transaction.txBuf)[4] = NULL_CMD;
+
+    //inicio transferencia por SPI
+    SPI_transfer(ads1299handle, &ads1299transaction);
+
+}
+\end{lstlisting}
+
+Luego del reset el módulo de adquisición inicia en el estado STANDBY, en este estado se configuran los registros CONFIG3, CH1SET al CH8SET.
+
+En el código \ref{codigo:CONFIG3} podemos ver el llamado a la función ads1299\_writeRegister para escribir el registro CONFIG3 y los registros correspondientes a los 8 canales, en donde podemos ver que el dato a escribir está formado por la suma de \textit{defines}, estos definidos en el archivo \textit{DASN\_ADS1299.h}.
+
+\begin{lstlisting}[caption= Configuración de CONFIG3. , firstnumber=198 , label=codigo:CONFIG3]
+	ads1299_writeRegister(CONFIG3 ,
+					ADS1299_CONFIG3_INTERNAL_REF_BUF_EN |
+					ADS1299_CONFIG3_BIASREF_SIGNAL_INTERNALLY |
+					ADS1299_CONFIG3_BIAS_BUFFER_ENABLE
+					);
+	
+	reg = CH1SET;
+	for(uint8_t i=0; i<8 ; i++)
+		{
+		ads1299_writeRegister(reg,
+						ADS1299_CH_N_SET_SETUP_NO |
+						ADS1299_CH_N_PGA_GAIN_1 |
+						ADS1299_CH_N_SRB2_OPEN |
+						ADS1299_CH_N_NORMAL_ELECTRODE_INPUT
+	                    );
+		reg++;
+		}
+\end{lstlisting}
+
+El procedimiento para escribir en los registros internos del ADS1299 es siempre el mismo. Por ejemplo la señal de impedancia se configura escribiendo en el registro LOFF cuando se recibe el comando ZSIGNAL\_31\_2, ZSIGNAL\_7\_8 o ZSIGNAL\_OFF (ver lista de comandos en tabla \ref{tab:Comandos}) siempre y cuando el módulo se encuentre en el estado CONFIGURANDO, de lo contrario el pedido será rechazadp.
+
+\subsection{Lectura de datos del ADS1299}
+
+Para adquirir señales el ADS1299 se configura en el modo de adquisición continua. Cuando hay un dato listo para ser leído el ADS1299 lo indica con un cambio de estado en el pin DRDY. Este pin desde el microcontrolador se lee por interrupción. Cuando se dispara la interrupción de DRDY, la rutina que atiende la interrupción lo que hace es iniciar la lectura de datos por SPI y libera la CPU ya que como se vio en la subsección \ref{configSPI} el puerto SPI trabaja en modo \textit{callback}. Cuando los datos leídos por el SPI están listos, se ejecuta la función de \textit{callback}. Dentro de esta función lo que se hace es enviar un evento al módulo de control y a través de una cola de mensajes los datos leídos del ADS1299.
+%
+%\begin{table}[h]
+%\centering
+%\caption[Configuración SPI]{Configuración SPI}
+%\begin{tabular}{l c c}
+%\toprule
+%\textbf{Dirección} & \textbf{Registro} & \textbf{Denominación}\\
+%\midrule
+%0x01		& CONFIG1	&	\\
+%0x02		& CONFIG2	&	\\
+%0x03		& CONFIG3	&	\\
+%0x04		& LOFF		&	\\
+%0x05		& CH1SET		&	\\
+%0x06		& CH2SET		&	\\
+%0x07		& CH3SET		&	\\
+%0x08		& CH4SET		&	\\
+%0x09		& CH5SET		&	\\
+%0x0A		& CH6SET		&	\\
+%0x0B 	& CH7SET		&	\\
+%0x0C		& CH8SET		&	\\
+%0X0D		& BIAS\_SENSP &	\\
+%0X0E		& BIAS\_SENSN &	\\
+%0X0F		& LOFF\_SENSP &	\\
+%0X10		& LOFF\_SENSN &	\\
+%0X11		& LOFF\_FLIP	 &	\\
+%0X12		& LOFF\_STATP	&\\
+%0X13		& LOFF\_STATN	&	\\
+%0X14		& GPIO		&	\\
+%0X15		& MISC1		&	\\
+%0X16		& MISC2		&	\\
+%0X17		& CONFIG4	&	\\
+%
+%
+%
+%\bottomrule
+%\hline
+%\end{tabular}
+%\label{tab:ListaReg}
+%\end{table}
+
+
+\section{Módulo interfaz de ususario}
 %Explicación del funcionamiento del móodulo
 %Pseudocódigo o diagrama en bloques
-(TBD)
+
+Este módulo está desarrollado en los archivos \textit{DASN\_UI.c} y \textit{DASN\_UI.h}. Es el encargado de manejar el pulsador y los dos leds que dispone la placa. Se decidió que sea un módulo independiente del módulo de control para que tenga más flexibilidad y si en futuros diseños se decide cambiar el hardware, esta arquitectura de software permite que sea escalable a más leds, pulsadores u otra manera de entregarle la información al usuario. 
+
+Cuando se quiere tomar alguna acción con los leds simplemente el módulo de control envía un evento al módulo interfaz de usuario indicando que acción se va a tomar. 
+
+\subsection{Manejo de los leds}
+Para el manejo de los leds se hizo uso de los \textit{clocks} que ofrece el sistema operativo. A estos \textit{clocks} se les puede configurar un tiempo que al cumplirse hace que se ejecute una función de \textit{callback}. En esta función se prende, apaga o cambia de estado el led según haya sido solicitado por el módulo de control. Esta configuración permite manejar los leds de forma totalmente desatendida sin casi ocupar tiempo de CPU. 
+
+\subsection{Manejo del pulsador}
+El pulsado se maneja por interrupción y se aplicó una rutina antirrebote para evitar falsas pulsaciones. Esta rutina se implementó utilizando un \textit{clock} del sistema operativo al que se le configuró un tiempo de 50 ms. 
+
+Cuando se presiona el pulsador y se ejecuta la interrupción por cambio de estado en el PIN del microcontrolador, lo que hace esta rutina es deshabilitar la interrupción del PIN para que el ruido de contacto del pulsador no genere más llamados a esta rutina. A su vez enciende el \textit{clock} configurado en 50 ms y libera la CPU para que se puedan seguir haciendo otras tareas. Cuando se cumplen los 50 ms y se ejecuta la función de \textit{callback} del \textit{clock}, esta función chequea el estado del PIN del pulsador y determina si efectivamente se presionó o no. En el caso que se detecte que se presionó el pulsador se envía un evento al módulo de control, de lo contrario no se hace nada. En ambos casos se vuelve a habilitar la interrupción por cambio de estado del pulsador para dejar todo listo para un nuevo ciclo.
+
